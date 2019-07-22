@@ -89,7 +89,6 @@ void addVertexSource(size_t ind) {
 }
 
 void scalarExtension() {
-
   if (solver == nullptr) {
     solver.reset(new VectorHeatMethodSolver(*geometry, tCoef));
   }
@@ -110,7 +109,6 @@ void scalarExtension() {
 }
 
 void vectorTransport() {
-
   if (solver == nullptr) {
     solver.reset(new VectorHeatMethodSolver(*geometry, tCoef));
   }
@@ -127,6 +125,17 @@ void vectorTransport() {
   VertexData<Vector2> vectorExtension = solver->transportTangentVectors(points);
 
   psMesh->addVertexIntrinsicVectorQuantity("vector extension", vectorExtension);
+}
+
+void computeLogMap() {
+  if (solver == nullptr) {
+    solver.reset(new VectorHeatMethodSolver(*geometry, tCoef));
+  }
+
+  Vertex sourceV = sourcePoints[0].vertex;
+  VertexData<Vector2> logmap = solver->computeLogMap(sourceV);
+
+  psMesh->addLocalParameterizationQuantity("logmap", logmap);
 }
 
 void buildPointsMenu() {
@@ -200,6 +209,10 @@ void myCallback() {
 
   if (ImGui::Button("run vector transport")) {
     vectorTransport();
+  }
+  
+  if (ImGui::Button("compute log map")) {
+    computeLogMap();
   }
 }
 
