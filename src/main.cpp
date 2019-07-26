@@ -1,9 +1,11 @@
 #include "geometrycentral/surface/halfedge_mesh.h"
 #include "geometrycentral/surface/heat_method_distance.h"
 #include "geometrycentral/surface/meshio.h"
+#include "geometrycentral/surface/surface_centers.h"
 #include "geometrycentral/surface/vector_heat_method.h"
 #include "geometrycentral/surface/vertex_position_geometry.h"
 
+#include "polyscope/point_cloud.h"
 #include "polyscope/polyscope.h"
 #include "polyscope/surface_mesh.h"
 
@@ -26,6 +28,7 @@ polyscope::SurfaceMesh* psMesh;
 float tCoef = 1.0;
 std::unique_ptr<VectorHeatMethodSolver> solver;
 int vertexInd = 0;
+int pCenter= 2 ;
 
 // Manage a list of sources
 struct SourceVert {
@@ -35,6 +38,13 @@ struct SourceVert {
   float vectorAngleRad = 0.;
 };
 std::vector<SourceVert> sourcePoints;
+
+// Manage a list of sites for averages
+struct SiteVert {
+  Vertex vertex;
+  float weight = 1.;
+};
+std::vector<SiteVert> siteVerts;
 
 bool vizFirstRun = true;
 void updateSourceSetViz() {
@@ -68,6 +78,24 @@ void updateSourceSetViz() {
   vizFirstRun = false;
 }
 
+bool vizFirstRunSite = true;
+void updateSiteSetViz() {
+
+  // Scalar balls around sources
+  std::vector<std::pair<size_t, double>> sourcePairs;
+  for (SiteVert& s : siteVerts) {
+    size_t ind = geometry->vertexIndices[s.vertex];
+    sourcePairs.emplace_back(ind, s.weight);
+  }
+  auto scalarQ = polyscope::getSurfaceMesh()->addVertexIsolatedScalarQuantity("averaging sites", sourcePairs);
+  scalarQ->pointRadius *= 2.;
+  scalarQ->cMap = polyscope::gl::ColorMapID::BLUES;
+  if (vizFirstRunSite) {
+    scalarQ->setEnabled(true);
+  }
+
+  vizFirstRunSite = false;
+}
 void addVertexSource(size_t ind) {
   Vertex v = mesh->vertex(ind);
 
@@ -86,6 +114,26 @@ void addVertexSource(size_t ind) {
   newV.vertex = v;
   sourcePoints.push_back(newV);
   updateSourceSetViz();
+}
+void addVertexSite(size_t ind) {
+  Vertex v = mesh->vertex(ind);
+
+  // Make sure not already used
+  for (SiteVert& s : siteVerts) {
+    if (s.vertex == v) {
+      std::stringstream ss;
+      ss << "Vertex " << v;
+      std::string vStr = ss.str();
+      polyscope::warning("Vertex " + vStr + " is already a site");
+      return;
+    }
+  }
+
+  SiteVert newV;
+  newV.vertex = v;
+  newV.weight = 1.0;
+  siteVerts.push_back(newV);
+  updateSiteSetViz();
 }
 
 void scalarExtension() {
@@ -138,6 +186,32 @@ void computeLogMap() {
   psMesh->addLocalParameterizationQuantity("logmap", logmap);
 }
 
+
+void computeCenter() {
+  if(!(pCenter == 1 || pCenter == 2)) {
+    polyscope::error("p must be 1 or 2");
+    return;
+  }
+
+  if (solver == nullptr) {
+    solver.reset(new VectorHeatMethodSolver(*geometry, tCoef));
+  }
+
+  // Build distribution
+  VertexData<double> dist(*mesh, 0.);
+  for (SiteVert& s : siteVerts) {
+    dist[s.vertex] += s.weight;
+  }
+
+  SurfacePoint center = findCenter(*geometry, *solver, dist, pCenter);
+
+  // Visualize
+  Vector3 centerPos = center.interpolate(geometry->inputVertexPositions);
+  std::vector<Vector3> centerPosCloud{centerPos};
+  auto pointQ = polyscope::registerPointCloud("center", centerPosCloud);
+  pointQ->pointRadius *= 5.;
+}
+
 void buildPointsMenu() {
 
   bool anyChanged = false;
@@ -188,31 +262,107 @@ void buildPointsMenu() {
   }
 }
 
-void myCallback() {
+void buildSitesMenu() {
 
-  ImGui::TextUnformatted("Algorithm options:");
-  ImGui::PushItemWidth(300);
-  if (ImGui::InputFloat("tCoef", &tCoef)) {
-    solver.reset();
+  bool anyChanged = false;
+
+  ImGui::PushItemWidth(200);
+
+  int id = 0;
+  int eraseInd = -1;
+  for (SiteVert& s : siteVerts) {
+    std::stringstream ss;
+    ss << "Vertex " << s.vertex;
+    std::string vStr = ss.str();
+    ImGui::PushID(vStr.c_str());
+
+    ImGui::TextUnformatted(vStr.c_str());
+
+    ImGui::SameLine();
+    if (ImGui::Button("delete")) {
+      eraseInd = id;
+      anyChanged = true;
+    }
+    ImGui::Indent();
+
+    if (ImGui::InputFloat("weight", &s.weight)) anyChanged = true;
+
+    ImGui::Unindent();
+    ImGui::PopID();
   }
   ImGui::PopItemWidth();
 
-  // Build the list of source points
-  if (ImGui::TreeNode("source points")) {
-    buildPointsMenu();
-    ImGui::TreePop();
+  // actually do erase, if requested
+  if (eraseInd != -1) {
+    siteVerts.erase(siteVerts.begin() + eraseInd);
   }
 
-  if (ImGui::Button("run scalar extension")) {
-    scalarExtension();
+  if (ImGui::Button("add site")) {
+    long long int pickVert = polyscope::getSurfaceMesh()->selectVertex();
+    if (pickVert >= 0) {
+      addVertexSite(pickVert);
+      anyChanged = true;
+    }
   }
 
-  if (ImGui::Button("run vector transport")) {
-    vectorTransport();
+  if (anyChanged) {
+    updateSiteSetViz();
   }
-  
-  if (ImGui::Button("compute log map")) {
-    computeLogMap();
+}
+
+void myCallback() {
+
+  ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
+  if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags)) {
+    if (ImGui::BeginTabItem("Basic algorithm")) {
+
+      ImGui::TextUnformatted("Algorithm options:");
+      ImGui::PushItemWidth(300);
+      if (ImGui::InputFloat("tCoef", &tCoef)) {
+        solver.reset();
+      }
+      ImGui::PopItemWidth();
+
+      // Build the list of source points
+      if (ImGui::TreeNode("source points")) {
+        buildPointsMenu();
+        ImGui::TreePop();
+      }
+
+      if (ImGui::Button("run scalar extension")) {
+        scalarExtension();
+      }
+
+      if (ImGui::Button("run vector transport")) {
+        vectorTransport();
+      }
+
+      if (ImGui::Button("compute log map")) {
+        computeLogMap();
+      }
+
+
+      ImGui::EndTabItem();
+    }
+    if (ImGui::BeginTabItem("Centers")) {
+
+      if (ImGui::TreeNode("sites to compute center of")) {
+        buildSitesMenu();
+        ImGui::TreePop();
+      }
+     
+
+      ImGui::PushItemWidth(200);
+      ImGui::InputInt("p norm", &pCenter);
+      ImGui::PopItemWidth();
+
+      if (ImGui::Button("find center")) {
+        computeCenter();
+      }
+
+      ImGui::EndTabItem();
+    }
+    ImGui::EndTabBar();
   }
 }
 
@@ -258,15 +408,15 @@ int main(int argc, char** argv) {
   // Set vertex tangent spaces
   geometry->requireVertexTangentBasis();
   VertexData<Vector3> vBasisX(*mesh);
-  for(Vertex v : mesh->vertices()) {
+  for (Vertex v : mesh->vertices()) {
     vBasisX[v] = geometry->vertexTangentBasis[v][0];
   }
   polyscope::getSurfaceMesh()->setVertexTangentBasisX(vBasisX);
-  
+
   // Set face tangent spaces
   geometry->requireFaceTangentBasis();
   FaceData<Vector3> fBasisX(*mesh);
-  for(Face f : mesh->faces()) {
+  for (Face f : mesh->faces()) {
     fBasisX[f] = geometry->faceTangentBasis[f][0];
   }
   polyscope::getSurfaceMesh()->setFaceTangentBasisX(fBasisX);
@@ -275,6 +425,11 @@ int main(int argc, char** argv) {
   geometry->requireVertexIndices();
   addVertexSource(0);
   addVertexSource(mesh->nVertices() / 2);
+
+  addVertexSite(0);
+  addVertexSite(2 * mesh->nVertices() / 3);
+  addVertexSite(mesh->nVertices() / 3);
+
 
   // Give control to the polyscope gui
   polyscope::show();
