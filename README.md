@@ -5,6 +5,8 @@ The Vector Heat Method is implemented in [geometry-central](http://geometry-cent
 
 See also the geometry-central documentation for [the Vector Heat Method](http://geometry-central.net/surface/algorithms/vector_heat_method/) and [centers on surfaces](http://geometry-central.net/surface/algorithms/surface_centers/).
 
+![demo git](https://github.com/nmwsharp/vector-heat-demo/blob/master/vector_heat_demo.gif)
+
 ### Building and running
 
 ```
