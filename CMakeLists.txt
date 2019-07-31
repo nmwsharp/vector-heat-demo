@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10.0)
 
-project(gc_polyscope_example)
+project(vector_heat_demo)
 
 ### Configure output locations
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -60,7 +60,7 @@ endif()
 
 # == Deps
 add_subdirectory(deps/geometry-central)
-#add_subdirectory(deps/polyscope)
+add_subdirectory(deps/polyscope)
 
 # == Build our project stuff
 
