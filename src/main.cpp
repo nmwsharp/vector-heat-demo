@@ -28,7 +28,7 @@ polyscope::SurfaceMesh* psMesh;
 float tCoef = 1.0;
 std::unique_ptr<VectorHeatMethodSolver> solver;
 int vertexInd = 0;
-int pCenter= 2 ;
+int pCenter = 2;
 
 // Manage a list of sources
 struct SourceVert {
@@ -153,7 +153,8 @@ void scalarExtension() {
 
   VertexData<double> scalarExtension = solver->extendScalar(points);
 
-  psMesh->addVertexScalarQuantity("scalar extension", scalarExtension);
+  auto psScalar = psMesh->addVertexScalarQuantity("scalar extension", scalarExtension);
+  psScalar->setEnabled(true);
 }
 
 void vectorTransport() {
@@ -172,24 +173,34 @@ void vectorTransport() {
   }
   VertexData<Vector2> vectorExtension = solver->transportTangentVectors(points);
 
-  psMesh->addVertexIntrinsicVectorQuantity("vector extension", vectorExtension);
+  auto psVec = psMesh->addVertexIntrinsicVectorQuantity("vector extension", vectorExtension);
+  psVec->setEnabled(true);
 }
 
 void computeLogMap() {
   if (solver == nullptr) {
     solver.reset(new VectorHeatMethodSolver(*geometry, tCoef));
   }
+  if (sourcePoints.size() == 0) {
+    polyscope::warning("must select a source");
+    return;
+  }
 
   Vertex sourceV = sourcePoints[0].vertex;
   VertexData<Vector2> logmap = solver->computeLogMap(sourceV);
 
-  psMesh->addLocalParameterizationQuantity("logmap", logmap);
+  auto psLogmap = psMesh->addLocalParameterizationQuantity("logmap", logmap);
+  psLogmap->setEnabled(true);
 }
 
 
 void computeCenter() {
-  if(!(pCenter == 1 || pCenter == 2)) {
-    polyscope::error("p must be 1 or 2");
+  if (!(pCenter == 1 || pCenter == 2)) {
+    polyscope::warning("p must be 1 or 2");
+    return;
+  }
+  if (siteVerts.size() == 0) {
+    polyscope::warning("must select at least one site");
     return;
   }
 
@@ -317,14 +328,14 @@ void myCallback() {
     if (ImGui::BeginTabItem("Basic algorithm")) {
 
       ImGui::TextUnformatted("Algorithm options:");
-      ImGui::PushItemWidth(300);
+      ImGui::PushItemWidth(100);
       if (ImGui::InputFloat("tCoef", &tCoef)) {
         solver.reset();
       }
       ImGui::PopItemWidth();
 
       // Build the list of source points
-      if (ImGui::TreeNode("source points")) {
+      if (ImGui::TreeNode("select source points")) {
         buildPointsMenu();
         ImGui::TreePop();
       }
@@ -346,11 +357,11 @@ void myCallback() {
     }
     if (ImGui::BeginTabItem("Centers")) {
 
-      if (ImGui::TreeNode("sites to compute center of")) {
+      if (ImGui::TreeNode("select sites to compute center of")) {
         buildSitesMenu();
         ImGui::TreePop();
       }
-     
+
 
       ImGui::PushItemWidth(200);
       ImGui::InputInt("p norm", &pCenter);
@@ -425,6 +436,8 @@ int main(int argc, char** argv) {
   geometry->requireVertexIndices();
   addVertexSource(0);
   addVertexSource(mesh->nVertices() / 2);
+  sourcePoints[1].scalarVal = 3.0;
+
 
   addVertexSite(0);
   addVertexSite(2 * mesh->nVertices() / 3);
