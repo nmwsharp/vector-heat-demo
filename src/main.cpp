@@ -57,7 +57,7 @@ void updateSourceSetViz() {
   }
   auto scalarQ = polyscope::getSurfaceMesh()->addVertexIsolatedScalarQuantity("source scalars", sourcePairs);
   scalarQ->pointRadius *= 2.;
-  scalarQ->cMap = polyscope::gl::ColorMapID::REDS;
+  scalarQ->cMap = "reds";
   if (vizFirstRun) {
     scalarQ->setEnabled(true);
   }
@@ -68,9 +68,9 @@ void updateSourceSetViz() {
     sourceVectors[s.vertex] = Vector2::fromAngle(s.vectorAngleRad) * s.vectorMag;
   }
   auto vectorQ = polyscope::getSurfaceMesh()->addVertexIntrinsicVectorQuantity("source vectors", sourceVectors);
-  vectorQ->lengthMult *= 2.;
-  vectorQ->radiusMult *= 4.;
-  vectorQ->vectorColor = glm::vec3{227 / 255., 52 / 255., 28 / 255.};
+  vectorQ->setVectorLengthScale(.05);
+  vectorQ->setVectorRadius(.005);
+  vectorQ->setVectorColor(glm::vec3{227 / 255., 52 / 255., 28 / 255.});
   if (vizFirstRun) {
     vectorQ->setEnabled(true);
   }
@@ -89,7 +89,7 @@ void updateSiteSetViz() {
   }
   auto scalarQ = polyscope::getSurfaceMesh()->addVertexIsolatedScalarQuantity("averaging sites", sourcePairs);
   scalarQ->pointRadius *= 2.;
-  scalarQ->cMap = polyscope::gl::ColorMapID::BLUES;
+  scalarQ->cMap = "blues";
   if (vizFirstRunSite) {
     scalarQ->setEnabled(true);
   }
@@ -220,7 +220,7 @@ void computeCenter() {
   Vector3 centerPos = center.interpolate(geometry->inputVertexPositions);
   std::vector<Vector3> centerPosCloud{centerPos};
   auto pointQ = polyscope::registerPointCloud("center", centerPosCloud);
-  pointQ->pointRadius *= 5.;
+  pointQ->setPointRadius(5.);
 }
 
 void buildPointsMenu() {
