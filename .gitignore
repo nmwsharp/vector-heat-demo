@@ -3,6 +3,7 @@ build/
 build_debug/
 
 # Editor and OS things
+.cache
 .DS_Store
 .vscode
 *.swp

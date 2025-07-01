@@ -20,7 +20,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STR
 
   # using Clang (linux or apple) or GCC
   message("Using clang/gcc compiler flags")
-  SET(BASE_CXX_FLAGS "-std=c++11 -Wall -Wextra -g3")
+  SET(BASE_CXX_FLAGS "-std=c++11 -Wall -Wextra -g3") 
   SET(DISABLED_WARNINGS " -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-deprecated-declarations -Wno-missing-braces -Wno-unused-private-field")
   SET(TRACE_INCLUDES " -H -Wno-error=unused-command-line-argument")
 
@@ -32,11 +32,19 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STR
     message("Setting gcc-specific options")
     SET(BASE_CXX_FLAGS "${BASE_CXX_FLAGS} -fmax-errors=5")
     SET(DISABLED_WARNINGS "${DISABLED_WARNINGS} -Wno-maybe-uninitialized -Wno-format-zero-length -Wno-unused-but-set-parameter -Wno-unused-but-set-variable")
+    SET(CMAKE_CXX_FLAGS_DEBUG          "-fsanitize=address")
   endif()
   
   SET(CMAKE_CXX_FLAGS "${BASE_CXX_FLAGS} ${DISABLED_WARNINGS}")
-  SET(CMAKE_CXX_FLAGS_DEBUG          "-g3")
-  SET(CMAKE_CXX_FLAGS_RELEASE        "-O3 -march=native -DNDEBUG")
+  SET(CMAKE_CXX_FLAGS_DEBUG          "${CMAKE_CXX_FLAGS_DEBUG} -g3")
+  include(CheckCXXCompilerFlag)
+  CHECK_CXX_COMPILER_FLAG(-march=native  COMPILER_SUPPORTS_MARCH_NATIVE)
+  if(COMPILER_SUPPORTS_MARCH_NATIVE)
+    set(MARCH_NATIVE "-march=native")
+  else()
+    set(MARCH_NATIVE "")
+  endif()
+  SET(CMAKE_CXX_FLAGS_RELEASE        "${MARCH_NATIVE} -O3 -DNDEBUG")
 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   # using Visual Studio C++
@@ -50,9 +58,8 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
 
-	add_definitions(/D "_CRT_SECURE_NO_WARNINGS")
-  add_definitions(-DNOMINMAX)
-  add_definitions(-D_USE_MATH_DEFINES)
+  add_definitions(/D "_CRT_SECURE_NO_WARNINGS")
+  add_definitions (-DNOMINMAX)
 else()
   # unrecognized
   message( FATAL_ERROR "Unrecognized compiler [${CMAKE_CXX_COMPILER_ID}]" )
@@ -63,6 +70,7 @@ endif()
 add_subdirectory(deps/geometry-central)
 add_subdirectory(deps/polyscope)
 
+
 # == Build our project stuff
 
 set(SRCS 
@@ -72,4 +80,5 @@ set(SRCS
 
 add_executable(vector_heat "${SRCS}")
 target_include_directories(vector_heat PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
+target_include_directories(vector_heat PUBLIC deps/polyscope/deps/args)
 target_link_libraries(vector_heat geometry-central polyscope)
