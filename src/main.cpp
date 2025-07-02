@@ -282,9 +282,7 @@ void clipLogMap(VertexData<Vector2>& logmap) {
     Vector2 logmapVal = logmap[v];
     float dist = norm(logmapVal);
     if (dist > logMapRadius) {
-      // logmap[v] = logmapVal * (logMapRadius / dist);
       logmap[v] = Vector2{std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
-      // logmap[v] = Vector2{0., 0.};
     }
   }
 }
@@ -337,8 +335,6 @@ void computeLogMapFromSurfacePoint() {
     VertexData<Vector2> logmapOnInput = signpostTri->restrictToInput(logmap);
     logmap = logmapOnInput;
   }
-
-  psMesh->addLocalParameterizationQuantity("logmap pre-rot", logmap);
 
   if (lastLogmap.size() > 0) { // Rotate the logmap to match the last x-direction
 
