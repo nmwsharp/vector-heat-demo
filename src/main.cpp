@@ -273,8 +273,6 @@ void vectorTransport() {
 
   VertexData<Vector3> basisX, basisY;
   std::tie(basisX, basisY) = getTangentVectors();
-  std::cout << "psMesh: " << psMesh << std::endl;
-  std::cout << "surfaceMesh: " << polyscope::getSurfaceMesh() << std::endl;
   auto vectorQ = psMesh->addVertexTangentVectorQuantity("extended vectors", vectorExtension, basisX, basisY);
   vectorQ->setEnabled(true);
 }
